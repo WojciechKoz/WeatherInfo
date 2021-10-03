@@ -34,21 +34,11 @@ namespace Weather
             Cities = Cities.OrderBy(a => rng.Next()).ToList();
         }
 
-        public void GetWeatherForRandomCities()
+        private bool TryToGetWeather(int startIndex)
         {
-            if(Cities.Count == 0)
-            {
-                GetCities();
-            }
-            // shuffle list and take first 100 elements
             List<Task<WeatherModel>> WeatherModelsTasks = new List<Task<WeatherModel>>();
-            WeatherList.Clear();
-            ShuffleCities();
 
-            // approx 10% of cities do not have info about weather. That 50% extra cities should do the job.
-            // also I cant do while loop because I want it to be async (for performance reasons)
-            // so I dont know how many of correct forecasts I will get 
-            for(var i = 0; i < 150; i++)
+            for(var i = startIndex; i < startIndex+150; i++)
             {
                 WeatherModelsTasks.Add(handler.GetCurrentWeather(Cities[i], WEATHER_API_KEY));
             }
@@ -70,10 +60,35 @@ namespace Weather
 
                 if(WeatherList.Count == 100)
                 {
-                    break;
+                    return true;
                 }
             }
+            return false;
+        }
 
+        /**
+        approx 10% of cities do not have info about weather
+        this function downloads data from 150 cities at the same time in a loop
+        there are 150 cities in one batch to make sure that
+        its almost certain that it will find 100 cities with weather info in the first iteration
+        the process repeats until it finds the first 100 cities
+        */
+        public void GetWeatherForRandomCities()
+        {
+            if(Cities.Count == 0)
+            {
+                GetCities();
+            }
+            // shuffle list and take first 100 elements
+            WeatherList.Clear();
+            ShuffleCities();
+
+            int startIndex = 0;
+
+            while(!TryToGetWeather(startIndex))
+            {
+                startIndex++;
+            }
         }
 
         public void ShowWeather()
